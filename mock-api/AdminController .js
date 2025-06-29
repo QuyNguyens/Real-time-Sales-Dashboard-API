@@ -1,0 +1,347 @@
+const User = require("../db/models/User");
+const Product = require("../db/models/Product");
+const Order = require("../db/models/Order");
+const OrderItem = require("../db/models/OrderItem");
+const { getTimeRange } = require("./utils/parseDateRange");
+
+class AdminController {
+  async getUsers(req, res) {
+    await this._paginate(User, req, res);
+  }
+
+  async getProducts(req, res) {
+    await this._paginate(Product, req, res);
+  }
+
+  async getOrders(req, res) {
+    await this._paginate(Order, req, res);
+  }
+
+  async getOrderItems(req, res) {
+    await this._paginate(OrderItem, req, res);
+  }
+
+  // 🔁 pagination function common
+  async _paginate(model, req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+
+      const [data, total] = await Promise.all([
+        model.find().skip(skip).limit(limit).sort({ createdAt: -1 }),
+        model.countDocuments(),
+      ]);
+
+      res.json({ data, total });
+    } catch (err) {
+      console.error("Pagination error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  async getOrdersByUser(req, res) {
+    try {
+      const { userId } = req.query;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+
+      if (!userId) {
+        return res.status(400).json({ error: "Missing userId parameter" });
+      }
+
+      const [orders, total] = await Promise.all([
+        Order.find({ userId }).skip(skip).limit(limit).sort({ createdAt: -1 }),
+        Order.countDocuments({ userId }),
+      ]);
+
+      res.json({ data: orders, total });
+    } catch (err) {
+      console.error("Lỗi khi lấy đơn hàng theo userId:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  async getOrderItemsByOrderId(req, res) {
+    try {
+      const { orderId } = req.params;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+
+      if (!orderId) {
+        return res.status(400).json({ error: "Thiếu orderId trong URL." });
+      }
+
+      const [data, total] = await Promise.all([
+        OrderItem.find({ orderId })
+          .skip(skip)
+          .limit(limit)
+          .sort({ createdAt: -1 }),
+        OrderItem.countDocuments({ orderId }),
+      ]);
+
+      res.json({ data, total });
+    } catch (err) {
+      console.error("Lỗi khi lấy OrderItem theo orderId:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  async getSalesOverview(req, res) {
+    try {
+      const now = new Date();
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(now.getFullYear() - 1);
+
+      // Lấy đơn hàng đã giao trong 1 năm qua
+      const deliveredOrders = await Order.find({
+        status: { $in: ["delivered", "shipped"] },
+        createdAt: { $gte: oneYearAgo, $lte: now },
+      }).select("_id");
+
+      const orderIds = deliveredOrders.map((o) => o._id);
+
+      const items = await OrderItem.find({
+        orderId: { $in: orderIds },
+        createdAt: { $gte: oneYearAgo, $lte: now },
+      });
+
+      // Tạo mảng tháng bắt đầu từ tháng kế tiếp → tháng hiện tại
+      const currentMonth = now.getMonth(); // 0-11
+      const monthOrder = Array.from(
+        { length: 12 },
+        (_, i) => (currentMonth + 1 + i) % 12
+      );
+
+      // Khởi tạo mảng thống kê rỗng
+      const stats = monthOrder.map((monthIndex) => {
+        const date = new Date(now.getFullYear(), monthIndex);
+        return {
+          monthIndex,
+          month: date.toLocaleString("en-US", { month: "short" }),
+          sales: 0,
+          profit: 0,
+          growth: 0,
+        };
+      });
+
+      // Cộng dồn sales/profit vào đúng tháng
+      for (const item of items) {
+        const itemMonth = new Date(item.createdAt).getMonth(); // 0-11
+        const stat = stats.find((s) => s.monthIndex === itemMonth);
+        if (stat) {
+          const revenue = item.unitPrice * item.quantity;
+          const cost = item.costPrice * item.quantity;
+          stat.sales += revenue;
+          stat.profit += revenue - cost;
+        }
+      }
+
+      // Tính % growth giữa các tháng
+      for (let i = 1; i < stats.length; i++) {
+        const prev = stats[i - 1].sales;
+        const curr = stats[i].sales;
+        stats[i].growth =
+          prev > 0 ? Math.round(((curr - prev) / prev) * 100) : 0;
+      }
+
+      // Xóa trường `monthIndex` trước khi trả về
+      const result = stats.map(({ month, sales, profit, growth }) => ({
+        month,
+        sales,
+        profit,
+        growth,
+      }));
+
+      res.json(result);
+    } catch (err) {
+      console.error("Error generating sales overview:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  async getOrderStatusCounts(req, res) {
+    try {
+      const statuses = [
+        "new",
+        "processing",
+        "shipped",
+        "delivered",
+        "cancelled",
+      ];
+      const filter = req.query.filter;
+      const now = new Date();
+
+      let startDate = null;
+      let endDate = null;
+
+      const utcDate = (y, m, d) => new Date(Date.UTC(y, m, d));
+
+      switch (filter) {
+        case "today": {
+          const y = now.getUTCFullYear();
+          const m = now.getUTCMonth();
+          const d = now.getUTCDate();
+          startDate = utcDate(y, m, d);
+          endDate = utcDate(y, m, d + 1);
+          break;
+        }
+
+        case "last_day": {
+          const y = now.getUTCFullYear();
+          const m = now.getUTCMonth();
+          const d = now.getUTCDate();
+          startDate = utcDate(y, m, d - 1);
+          endDate = utcDate(y, m, d);
+          break;
+        }
+
+        case "this_week": {
+          const day = now.getUTCDay(); // 0 (Sun) → 6 (Sat)
+          const diff = now.getUTCDate() - day + (day === 0 ? -6 : 1); // Về thứ 2
+          const y = now.getUTCFullYear();
+          const m = now.getUTCMonth();
+          startDate = utcDate(y, m, diff);
+          endDate = utcDate(y, m, now.getUTCDate() + 1);
+          break;
+        }
+
+        case "last_week": {
+          const day = now.getUTCDay();
+          const thisMonday = now.getUTCDate() - day + (day === 0 ? -6 : 1);
+          const lastMonday = thisMonday - 7;
+          const lastSunday = thisMonday;
+          const y = now.getUTCFullYear();
+          const m = now.getUTCMonth();
+          startDate = utcDate(y, m, lastMonday);
+          endDate = utcDate(y, m, lastSunday);
+          break;
+        }
+
+        case "this_month": {
+          const y = now.getUTCFullYear();
+          const m = now.getUTCMonth();
+          startDate = utcDate(y, m, 1);
+          endDate = utcDate(y, m, now.getUTCDate() + 1);
+          break;
+        }
+
+        case "last_month": {
+          const y = now.getUTCFullYear();
+          const m = now.getUTCMonth();
+          startDate = utcDate(y, m - 1, 1);
+          endDate = utcDate(y, m, 1);
+          break;
+        }
+
+        default:
+          break;
+      }
+
+      const match = { status: { $in: statuses } };
+
+      // 🟡 Dùng timestamp thay vì createdAt
+      if (startDate && endDate) {
+        match.timestamp = { $gte: startDate, $lt: endDate };
+      }
+
+      const counts = await Order.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const result = Object.fromEntries(
+        statuses.map((status) => {
+          const found = counts.find((c) => c._id === status);
+          return [status, found ? found.count : 0];
+        })
+      );
+
+      res.json(result);
+    } catch (err) {
+      console.error("❌ Error getting order status counts:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  async getProductTypeStats(req, res) {
+    try {
+      const { filter } = req.query;
+
+      const timeRange = getTimeRange(filter);
+
+      const pipeline = [
+        {
+          $lookup: {
+            from: "orders",
+            localField: "orderId",
+            foreignField: "_id",
+            as: "order",
+          },
+        },
+        { $unwind: "$order" },
+
+        ...(timeRange
+          ? [
+              {
+                $match: {
+                  "order.timestamp": {
+                    $gte: timeRange.start,
+                    $lt: timeRange.end,
+                  },
+                },
+              },
+            ]
+          : []),
+
+        {
+          $lookup: {
+            from: "products",
+            localField: "name",
+            foreignField: "name",
+            as: "product",
+          },
+        },
+        { $unwind: "$product" },
+
+        {
+          $group: {
+            _id: "$product.type",
+            amount: { $sum: "$quantity" },
+          },
+        },
+      ];
+
+      const stats = await OrderItem.aggregate(pipeline);
+
+      const total = stats.reduce((sum, item) => sum + item.amount, 0);
+
+      const result = {};
+
+      stats
+        .slice()
+        .sort((a, b) => b.amount - a.amount)
+        .forEach((item) => {
+          const percentage = total === 0 ? 0 : (item.amount / total) * 100;
+          result[item._id] = {
+            amount: item.amount,
+            growth: Number(percentage.toFixed(2)),
+          };
+        });
+
+      res.json(result);
+    } catch (err) {
+      console.error("❌ Error generating product type stats:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+}
+
+module.exports = new AdminController();
