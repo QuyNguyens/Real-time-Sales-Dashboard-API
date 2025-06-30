@@ -33,7 +33,6 @@ app.get(
   AdminController.getOrderItems.bind(AdminController)
 );
 app.get("/api/products", AdminController.getProducts.bind(AdminController));
-app.delete("/api/product-delete", MockAPI.deleteProduct);
 app.get(
   "/api/orders-user",
   AdminController.getOrdersByUser.bind(AdminController)
@@ -42,6 +41,8 @@ app.get(
   "/api/order-items",
   AdminController.getOrderItemsByOrderId.bind(AdminController)
 );
+app.delete("/api/user-delete", MockAPI.deleteUser);
+app.delete("/api/product-delete", MockAPI.deleteProduct);
 app.delete("/api/order-delete", MockAPI.deleteOrder);
 app.get(
   "/api/sales-overview",

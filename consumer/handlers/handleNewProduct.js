@@ -9,9 +9,8 @@ class ProductController {
   }
 
   async delete(data) {
-    const productId = data.productId;
-
-    await Product.deleteOne({ productId });
+    const { productId } = data;
+    await Product.deleteOne({ _id: productId });
     console.log(`Đã xóa sản phẩm  ${productId}`);
   }
 }

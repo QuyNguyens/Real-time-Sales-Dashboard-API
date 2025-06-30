@@ -222,6 +222,16 @@ class MockAPI {
     sendMessage(message);
     res.json({ status: "ok", message });
   }
+
+  deleteUser(req, res) {
+    const { userId } = req.query;
+    const message = {
+      type: "delete_user",
+      userId,
+    };
+    sendMessage(message);
+    res.json({ status: "ok", message });
+  }
 }
 
 module.exports = new MockAPI();
