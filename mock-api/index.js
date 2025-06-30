@@ -33,6 +33,7 @@ app.get(
   AdminController.getOrderItems.bind(AdminController)
 );
 app.get("/api/products", AdminController.getProducts.bind(AdminController));
+app.delete("/api/product-delete", MockAPI.deleteProduct);
 app.get(
   "/api/orders-user",
   AdminController.getOrdersByUser.bind(AdminController)

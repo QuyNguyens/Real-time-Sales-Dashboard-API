@@ -80,7 +80,7 @@ class MockAPI {
 
   async seedOrders(req, res) {
     try {
-      const {orderCount = 1} = req.query;
+      const { orderCount = 1 } = req.query;
 
       const now = new Date();
       const oneYearAgo = new Date();
@@ -146,7 +146,7 @@ class MockAPI {
   }
 
   newProducts(req, res) {
-    const {count = 3} = req.query;
+    const { count = 3 } = req.query;
 
     const products = Array.from({ length: count }).map(() => {
       const unitPrice = faker.number.int({ min: 100000, max: 500000 });
@@ -207,8 +207,18 @@ class MockAPI {
     const { orderId } = req.query;
     const message = {
       type: "delete_order",
-      orderId: orderId
-    }
+      orderId: orderId,
+    };
+    sendMessage(message);
+    res.json({ status: "ok", message });
+  }
+
+  deleteProduct(req, res) {
+    const { productId } = req.query;
+    const message = {
+      type: "delete_product",
+      productId,
+    };
     sendMessage(message);
     res.json({ status: "ok", message });
   }
