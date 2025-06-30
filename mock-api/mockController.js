@@ -80,7 +80,7 @@ class MockAPI {
 
   async seedOrders(req, res) {
     try {
-      const {orderCount} = req.query;
+      const {orderCount = 1} = req.query;
 
       const now = new Date();
       const oneYearAgo = new Date();
@@ -95,7 +95,7 @@ class MockAPI {
       ];
 
       for (let i = 0; i < orderCount; i++) {
-        const itemCount = faker.number.int({ min: 5, max: 15 });
+        const itemCount = faker.number.int({ min: 3, max: 7 });
 
         const randomProducts = await Product.aggregate([
           { $sample: { size: itemCount } },
@@ -145,39 +145,39 @@ class MockAPI {
     }
   }
 
-    newProducts(req, res) {
-      const {count} = req.query;
+  newProducts(req, res) {
+    const {count = 3} = req.query;
 
-      const products = Array.from({ length: count }).map(() => {
-        const unitPrice = faker.number.int({ min: 100000, max: 500000 });
-        const costPrice = faker.number.int({
-          min: Math.floor(unitPrice * 0.5),
-          max: Math.floor(unitPrice * 0.9),
-        });
-
-        return {
-          name: faker.commerce.productName(),
-          unitPrice,
-          costPrice,
-          type: faker.helpers.arrayElement([
-            "quần áo",
-            "điện thoại",
-            "thiết bị điện tử",
-            "giày dép",
-            "khác",
-          ]),
-          image: faker.image.urlLoremFlickr({ category: "product" }),
-        };
+    const products = Array.from({ length: count }).map(() => {
+      const unitPrice = faker.number.int({ min: 100000, max: 500000 });
+      const costPrice = faker.number.int({
+        min: Math.floor(unitPrice * 0.5),
+        max: Math.floor(unitPrice * 0.9),
       });
 
-      const message = {
-        type: "new_product",
-        products,
+      return {
+        name: faker.commerce.productName(),
+        unitPrice,
+        costPrice,
+        type: faker.helpers.arrayElement([
+          "quần áo",
+          "điện thoại",
+          "thiết bị điện tử",
+          "giày dép",
+          "khác",
+        ]),
+        image: faker.image.urlLoremFlickr({ category: "product" }),
       };
+    });
 
-      sendMessage(message);
-      res.json({ status: "ok", products });
-    }
+    const message = {
+      type: "new_product",
+      products,
+    };
+
+    sendMessage(message);
+    res.json({ status: "ok", products });
+  }
 
   updateOrderStatus(req, res) {
     const { orderId } = req.params;
@@ -200,6 +200,16 @@ class MockAPI {
       status,
       timestamp: new Date().toISOString(),
     });
+    res.json({ status: "ok", message });
+  }
+
+  deleteOrder(req, res) {
+    const { orderId } = req.query;
+    const message = {
+      type: "delete_order",
+      orderId: orderId
+    }
+    sendMessage(message);
     res.json({ status: "ok", message });
   }
 }

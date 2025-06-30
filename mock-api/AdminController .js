@@ -6,15 +6,50 @@ const { getTimeRange } = require("./utils/parseDateRange");
 
 class AdminController {
   async getUsers(req, res) {
-    await this._paginate(User, req, res);
+    return res.json(await this._paginate(User, req, res));
   }
 
   async getProducts(req, res) {
-    await this._paginate(Product, req, res);
+    return res.json(await this._paginate(Product, req, res));
   }
 
   async getOrders(req, res) {
-    await this._paginate(Order, req, res);
+    try {
+      const { data: orders, total } = await this._paginate(Order, req);
+
+      const userIds = orders.map((order) => order.userId);
+
+      // Lấy user tương ứng
+      const users = await User.find({ _id: { $in: userIds } }).select(
+        "name avatar email"
+      ); // chỉ lấy các field cần thiết
+
+      // map userId => user object
+      const userMap = {};
+      users.forEach((user) => {
+        userMap[user._id.toString()] = user;
+      });
+
+      // merge vào từng order
+      const enrichedOrders = orders.map((order) => {
+        const user = userMap[order.userId.toString()];
+        return {
+          ...order.toObject(),
+          user: user
+            ? {
+                name: user.name,
+                avatar: user.avatar,
+                email: user.email,
+              }
+            : null,
+        };
+      });
+
+      res.json({ data: enrichedOrders, total });
+    } catch (err) {
+      console.error("getOrders error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
   }
 
   async getOrderItems(req, res) {
@@ -22,22 +57,17 @@ class AdminController {
   }
 
   // 🔁 pagination function common
-  async _paginate(model, req, res) {
-    try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const skip = (page - 1) * limit;
+  async _paginate(model, req) {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-      const [data, total] = await Promise.all([
-        model.find().skip(skip).limit(limit).sort({ createdAt: -1 }),
-        model.countDocuments(),
-      ]);
+    const [data, total] = await Promise.all([
+      model.find().skip(skip).limit(limit).sort({ createdAt: -1 }),
+      model.countDocuments(),
+    ]);
 
-      res.json({ data, total });
-    } catch (err) {
-      console.error("Pagination error:", err);
-      res.status(500).json({ error: "Internal server error" });
-    }
+    return { data, total };
   }
 
   async getOrdersByUser(req, res) {
@@ -95,27 +125,24 @@ class AdminController {
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(now.getFullYear() - 1);
 
-      // Lấy đơn hàng đã giao trong 1 năm qua
       const deliveredOrders = await Order.find({
         status: { $in: ["delivered", "shipped"] },
         createdAt: { $gte: oneYearAgo, $lte: now },
-      }).select("_id");
+      }).select("orderId");
 
-      const orderIds = deliveredOrders.map((o) => o._id);
+      const orderIds = deliveredOrders.map((o) => o.orderId);
 
       const items = await OrderItem.find({
         orderId: { $in: orderIds },
         createdAt: { $gte: oneYearAgo, $lte: now },
       });
 
-      // Tạo mảng tháng bắt đầu từ tháng kế tiếp → tháng hiện tại
       const currentMonth = now.getMonth(); // 0-11
       const monthOrder = Array.from(
         { length: 12 },
         (_, i) => (currentMonth + 1 + i) % 12
       );
 
-      // Khởi tạo mảng thống kê rỗng
       const stats = monthOrder.map((monthIndex) => {
         const date = new Date(now.getFullYear(), monthIndex);
         return {
@@ -282,7 +309,7 @@ class AdminController {
           $lookup: {
             from: "orders",
             localField: "orderId",
-            foreignField: "_id",
+            foreignField: "orderId",
             as: "order",
           },
         },
