@@ -1,7 +1,7 @@
 const amqp = require("amqplib");
 const handleNewUser = require("./handlers/handleNewUser");
 const OrderController = require("./handlers/handleNewOrder");
-const handleNewProduct = require("./handlers/handleNewProduct");
+const ProductController = require("./handlers/handleNewProduct");
 const handleOrderStatusUpdate = require("./handlers/handleOrderStatusUpdate");
 const { broadcast } = require("../ws-server");
 const env = require("../config/env");
@@ -33,10 +33,14 @@ async function startConsumer() {
           break;
         case "delete_order":
           await OrderController.deleteOrder(data);
-          broadcast(data);  
+          broadcast(data);
           break;
         case "new_product":
-          await handleNewProduct(data);
+          await ProductController.create(data);
+          broadcast(data);
+          break;
+        case "delete_product":
+          await ProductController.delete(data);
           broadcast(data);
           break;
         case "order_status_update":

@@ -45,7 +45,7 @@ class OrderController {
 
     await OrderItem.insertMany(items);
     console.log(
-      `Đã lưu đơn hàng ${order.orderId} với ${items.length} sản phẩm`
+      `Đã lưu đơn hàng ${order.orderId} với ${items.length} sản phẩms`
     );
   }
 
