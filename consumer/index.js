@@ -1,15 +1,14 @@
 const amqp = require("amqplib");
-const handleNewOrder = require("./handlers/handleNewOrder");
 const handleNewUser = require("./handlers/handleNewUser");
+const OrderController = require("./handlers/handleNewOrder");
 const handleNewProduct = require("./handlers/handleNewProduct");
 const handleOrderStatusUpdate = require("./handlers/handleOrderStatusUpdate");
 const { broadcast } = require("../ws-server");
-const env = require('../config/env');
+const env = require("../config/env");
 
 const QUEUE_NAME = env.QUEUE_NAME;
 
 async function startConsumer() {
-
   const conn = await amqp.connect(env.AMQP_URL);
   const channel = await conn.createChannel();
   await channel.assertQueue(QUEUE_NAME, { durable: true });
@@ -29,8 +28,12 @@ async function startConsumer() {
           broadcast(data);
           break;
         case "new_order":
-          await handleNewOrder(data);
+          await OrderController.newOrder(data);
           broadcast(data);
+          break;
+        case "delete_order":
+          await OrderController.deleteOrder(data);
+          broadcast(data);  
           break;
         case "new_product":
           await handleNewProduct(data);
