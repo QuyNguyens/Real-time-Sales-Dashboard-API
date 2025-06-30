@@ -369,6 +369,86 @@ class AdminController {
       res.status(500).json({ error: "Internal server error" });
     }
   }
+
+  async getUserTop(req, res) {
+    try {
+      const { filter } = req.query;
+
+      const now = new Date();
+      let startDate;
+
+      switch (filter) {
+        case "day":
+          startDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate()
+          );
+          break;
+        case "week":
+          const dayOfWeek = now.getDay(); // 0 (Sun) - 6 (Sat)
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - dayOfWeek);
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case "year":
+          startDate = new Date(now.getFullYear(), 0, 1);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), 0, 1);
+          break;
+      }
+
+      const result = await Order.aggregate([
+        {
+          $match: {
+            timestamp: { $gte: startDate },
+          },
+        },
+        {
+          $group: {
+            _id: "$userId",
+            amount: { $sum: 1 },
+            total: { $sum: "$amount" },
+          },
+        },
+        {
+          $sort: { total: -1 },
+        },
+        { $limit: 10 },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        {
+          $unwind: "$user",
+        },
+        {
+          $project: {
+            user: {
+              name: "$user.name",
+              email: "$user.email",
+              avatar: "$user.avatar",
+            },
+            amount: 1,
+            total: 1,
+          },
+        },
+      ]);
+
+      res.json(result);
+    } catch (err) {
+      console.error("Error getting top users:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
 }
 
 module.exports = new AdminController();

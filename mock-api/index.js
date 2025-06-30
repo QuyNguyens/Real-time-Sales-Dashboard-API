@@ -57,6 +57,7 @@ app.get(
   AdminController.getProductTypeStats.bind(AdminController)
 );
 
+app.get("/api/user-top", AdminController.getUserTop.bind(AdminController));
 setupWebSocket(server);
 
 // Run server only after MongoDB + RabbitMQ are connected
