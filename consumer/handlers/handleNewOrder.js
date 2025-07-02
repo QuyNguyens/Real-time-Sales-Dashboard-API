@@ -49,6 +49,22 @@ class OrderController {
     );
   }
 
+  async updateOrderStatus(data) {
+    const { orderId, status } = data;
+
+    const order = await Order.findOne({ orderId: orderId });
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    order.status = status;
+    await order.save();
+
+    console.log(
+      `Đã cập nhật trạng thái đơn hàng ${orderId}, trạng thái mới là ${status}`
+    );
+  }
+
   async deleteOrder(data) {
     const orderId = data.orderId;
 

@@ -186,9 +186,10 @@ class MockAPI {
   }
 
   updateOrderStatus(req, res) {
-    const { orderId } = req.params;
-    const { status } = req.body;
+    const { orderId, status } = req.body;
 
+    console.log('orderId: ', orderId);
+    
     const allowedStatuses = [
       "new",
       "processing",
@@ -199,6 +200,12 @@ class MockAPI {
     if (!allowedStatuses.includes(status)) {
       return res.status(400).json({ error: "Invalid status value." });
     }
+    const message = {
+      type: "order_status_update",
+      orderId,
+      status,
+      timestamp: new Date().toISOString(),
+    };
 
     sendMessage({
       type: "order_status_update",

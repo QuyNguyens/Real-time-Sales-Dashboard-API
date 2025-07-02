@@ -1,10 +1,11 @@
 // consumer/handlers/handleNewProduct.js
 const Product = require("../../db/models/Product");
+const { broadcast } = require("../../ws-server");
 
 class ProductController {
   async create(data) {
     const products = await Product.insertMany(data.products);
-
+    broadcast({ type: "new_product", products });
     console.log(`created ${products.length} products`);
   }
 

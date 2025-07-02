@@ -31,13 +31,16 @@ async function startConsumer() {
           await OrderController.newOrder(data);
           broadcast(data);
           break;
+        case "order_status_update":
+          await OrderController.updateOrderStatus(data);
+          broadcast(data);
+          break;
         case "delete_order":
           await OrderController.deleteOrder(data);
           broadcast(data);
           break;
         case "new_product":
           await ProductController.create(data);
-          broadcast(data);
           break;
         case "delete_product":
           await ProductController.delete(data);
