@@ -26,7 +26,7 @@ class MockAPI {
 
   async newOrder(req, res) {
     try {
-      const count = faker.number.int({ min: 5, max: 15 });
+      const count = faker.number.int({ min: 3, max: 7 });
 
       const randomProducts = await Product.aggregate([
         { $sample: { size: count } },
@@ -60,6 +60,12 @@ class MockAPI {
         "cancelled",
       ]);
 
+      function getPastTimestamp(daysAgo) {
+        const d = new Date();
+        d.setDate(d.getDate() - daysAgo);
+        return d.toISOString();
+      }
+
       const message = {
         type: "new_order",
         orderId: faker.string.uuid(),
@@ -67,7 +73,7 @@ class MockAPI {
         items,
         amount,
         status,
-        timestamp: new Date().toISOString(),
+        timestamp: getPastTimestamp(0),
       };
 
       sendMessage(message);

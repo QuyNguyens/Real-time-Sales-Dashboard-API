@@ -449,6 +449,89 @@ class AdminController {
       res.status(500).json({ error: "Internal server error" });
     }
   }
+
+  async getOrderDailyBreakdownPerWeek(req, res) {
+    const weekdays = [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+    ];
+
+    const normalizeWeekData = (docs) => {
+      const result = {};
+      let weekTotal = 0;
+
+      weekdays.forEach((day) => {
+        result[day] = { count: 0, totalAmount: 0 };
+      });
+
+      docs.forEach((item) => {
+        const dayIndex = item._id - 1;
+        const name = weekdays[dayIndex];
+        const total = item.totalAmount || 0;
+        result[name] = {
+          count: item.count,
+          totalAmount: total,
+        };
+        weekTotal += total;
+      });
+
+      result["weekTotal"] = weekTotal;
+      return result;
+    };
+
+    const getLast7DaysRange = (baseDate) => {
+      const end = new Date(baseDate);
+      end.setHours(23, 59, 59, 999);
+
+      const start = new Date(baseDate);
+      start.setDate(start.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+
+      return { start, end };
+    };
+
+    const today = new Date();
+    const thisWeek = getLast7DaysRange(today);
+
+    const lastMonth = new Date(today);
+    lastMonth.setMonth(today.getMonth() - 1);
+    const sameWeekLastMonth = getLast7DaysRange(lastMonth);
+
+    const lastYear = new Date(today);
+    lastYear.setFullYear(today.getFullYear() - 1);
+    const sameWeekLastYear = getLast7DaysRange(lastYear);
+
+    const getDailyStats = async ({ start, end }) => {
+      const docs = await Order.aggregate([
+        { $match: { timestamp: { $gte: start, $lte: end } } },
+        {
+          $group: {
+            _id: { $dayOfWeek: "$timestamp" },
+            count: { $sum: 1 },
+            totalAmount: { $sum: "$amount" },
+          },
+        },
+      ]);
+      return normalizeWeekData(docs);
+    };
+
+    const [thisWeekData, lastMonthData, lastYearData] = await Promise.all([
+      getDailyStats(thisWeek),
+      getDailyStats(sameWeekLastMonth),
+      getDailyStats(sameWeekLastYear),
+    ]);
+
+    res.json({
+      thisWeek: thisWeekData,
+      sameWeekLastMonth: lastMonthData,
+      sameWeekLastYear: lastYearData,
+    });
+  }
 }
 
 module.exports = new AdminController();
