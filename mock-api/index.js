@@ -38,7 +38,7 @@ app.get(
   AdminController.getOrdersByUser.bind(AdminController)
 );
 app.get(
-  "/api/order-items",
+  "/api/order-items-id",
   AdminController.getOrderItemsByOrderId.bind(AdminController)
 );
 app.delete("/api/user-delete", MockAPI.deleteUser);
