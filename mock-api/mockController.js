@@ -4,24 +4,29 @@ const Product = require("../db/models/Product");
 
 class MockAPI {
   newUser(req, res) {
-    const now = new Date();
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(now.getFullYear() - 1);
+    // const now = new Date();
+    // const oneYearAgo = new Date();
+    // oneYearAgo.setFullYear(now.getFullYear() - 1);
 
-    const message = {
-      type: "new_user",
-      name: faker.person.fullName(),
-      email: faker.internet.email(),
-      phone: faker.phone.number("09########"),
-      address: faker.location.streetAddress(true),
-      avatar: faker.image.avatar(),
-      timestamp: faker.date
-        .between({ from: oneYearAgo, to: now })
-        .toISOString(),
-    };
+    const count = parseInt(req.query.count) || 1;
+    const users = [];
 
-    sendMessage(message);
-    res.json({ status: "ok", message });
+    for (let i = 0; i < count; i++) {
+      const user = {
+        type: "new_user",
+        name: faker.person.fullName(),
+        email: faker.internet.email(),
+        phone: faker.phone.number("09########"),
+        address: faker.location.streetAddress(true),
+        avatar: faker.image.avatar(),
+        timestamp: new Date().toISOString(),
+      };
+
+      sendMessage(user);
+      users.push(user);
+    }
+
+    res.json({ status: "ok", count, users });
   }
 
   async newOrder(req, res) {
@@ -88,9 +93,9 @@ class MockAPI {
     try {
       const { orderCount = 1 } = req.query;
 
-      const now = new Date();
-      const oneYearAgo = new Date();
-      oneYearAgo.setFullYear(now.getFullYear() - 1);
+      // const now = new Date();
+      // const oneYearAgo = new Date();
+      // oneYearAgo.setFullYear(now.getFullYear() - 1);
 
       const statuses = [
         "new",
@@ -126,7 +131,7 @@ class MockAPI {
 
         const amount = items.reduce((sum, i) => sum + i.total, 0);
         const status = faker.helpers.arrayElement(statuses);
-        const timestamp = faker.date.between({ from: oneYearAgo, to: now });
+        const timestamp = new Date().toISOString();
 
         const message = {
           type: "new_order",
@@ -135,7 +140,7 @@ class MockAPI {
           items,
           amount,
           status,
-          timestamp: timestamp.toISOString(),
+          timestamp: timestamp,
         };
 
         sendMessage(message);
@@ -188,8 +193,8 @@ class MockAPI {
   updateOrderStatus(req, res) {
     const { orderId, status } = req.body;
 
-    console.log('orderId: ', orderId);
-    
+    console.log("orderId: ", orderId);
+
     const allowedStatuses = [
       "new",
       "processing",

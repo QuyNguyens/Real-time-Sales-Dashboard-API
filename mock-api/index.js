@@ -22,7 +22,7 @@ const mockLimiter = createLimiter(5, 10); // 5 requests each 10s
 app.use("/mock", mockLimiter);
 
 app.post("/mock/new-user", MockAPI.newUser);
-app.post("/mock/new-order", MockAPI.newOrder);
+app.post("/mock/new-order", MockAPI.seedOrders);
 app.post("/mock/order-update", MockAPI.updateOrderStatus);
 app.post("/mock/new-product", MockAPI.newProducts);
 
