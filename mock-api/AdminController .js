@@ -95,10 +95,7 @@ class AdminController {
 
   async getOrderItemsByOrderId(req, res) {
     try {
-      const { orderId } = req.params;
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const skip = (page - 1) * limit;
+      const { orderId } = req.query;
 
       if (!orderId) {
         return res.status(400).json({ error: "Thiếu orderId trong URL." });
@@ -106,8 +103,6 @@ class AdminController {
 
       const [data, total] = await Promise.all([
         OrderItem.find({ orderId })
-          .skip(skip)
-          .limit(limit)
           .sort({ createdAt: -1 }),
         OrderItem.countDocuments({ orderId }),
       ]);
