@@ -12,7 +12,6 @@ async function startConsumer() {
   const conn = await amqp.connect(env.AMQP_URL);
   const channel = await conn.createChannel();
   await channel.assertQueue(QUEUE_NAME, { durable: true });
-
   console.log("Listening for messages...");
 
   channel.consume(QUEUE_NAME, async (msg) => {
