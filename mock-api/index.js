@@ -26,6 +26,9 @@ app.post("/mock/new-order", MockAPI.seedOrders);
 app.post("/mock/order-update", MockAPI.updateOrderStatus);
 app.post("/mock/new-product", MockAPI.newProducts);
 
+app.get("/ping",(req, res) =>{
+  return res.json({message: "ok"});
+});
 app.get("/api/users", AdminController.getUsers.bind(AdminController));
 app.get("/api/orders", AdminController.getOrders.bind(AdminController));
 app.get(
